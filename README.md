@@ -1,4 +1,4 @@
-# homelab-public
+# homelab
 
 A **sealed** self-hosted home server: photos, files, DNS, automation, all over Tailscale with your own
 certificate authority, and **zero ports open to the internet**.
@@ -43,7 +43,7 @@ Placeholder values used below. Replace them everywhere (`grep -rn 100.64.0` help
 ```bash
 sudo apt install docker.io docker-compose-v2 git
 sudo usermod -aG docker $USER            # log out and back in
-git clone https://github.com/karemverse/homelab-public.git ~/homelab
+git clone https://github.com/karemverse/homelab.git ~/homelab
 sudo mkdir -p /srv/data /etc/homelab && sudo chmod 700 /etc/homelab
 ```
 
