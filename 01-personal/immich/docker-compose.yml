@@ -1,0 +1,72 @@
+# Immich, lean. Stable v3.3.3, pinned by digest (was v3.2.4, 2026-10-14). Old file: docker-compose.yml.bak-2026-10-06
+# ML stays off until 5.3 has paused the queues: docker compose --profile ml up -d
+name: personal-immich
+
+services:
+  immich-server:
+    container_name: personal-immich_server
+    image: ghcr.io/immich-app/immich-server:v3.3.3@sha256:bae7664ff3aa4c2c1fcbdcdd86b40b105643c5f861f3e6a770fc760089f25862
+    volumes:
+      - ${UPLOAD_LOCATION}:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "127.0.0.1:2283:2283"        # Caddy (photos.homelab.internal)
+      - "100.64.0.10:2283:2283"    # Phone app over Tailscale
+    env_file: [ .env ]
+    depends_on: [ redis, database ]
+    restart: unless-stopped
+    networks: [ immich, immich-db ]
+    devices:
+      - /dev/dri:/dev/dri   # Vega iGPU, VAAPI video transcoding (2026-10-08)
+    cpus: 3          # 2026-10-08: ffmpeg took all 8 cores at 92C during the first phone backup
+    mem_limit: 2g
+
+  immich-machine-learning:
+    container_name: personal-immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:v3.3.3@sha256:73915f07e1f4289ba45b174c58443db74cef47ddf502613f475fc5e52458ea42
+    profiles: [ ml ]
+    environment:
+      MACHINE_LEARNING_WORKERS: "1"
+      MACHINE_LEARNING_MODEL_REVISION: "v2"   # optimized models, opt-in since v3.3.0 (2026-10-14)
+      MACHINE_LEARNING_REQUEST_THREADS: "2"
+      MACHINE_LEARNING_MODEL_INTER_OP_THREADS: "1"
+      MACHINE_LEARNING_MODEL_INTRA_OP_THREADS: "2"
+      MACHINE_LEARNING_MODEL_TTL: "300"
+      MACHINE_LEARNING_MODEL_ARENA: "false"
+      ORT_DISABLE_TELEMETRY: "1"
+    volumes:
+      - /srv/data/personal-immich/model-cache:/cache
+    restart: unless-stopped
+    networks: [ immich, immich-db ]
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 2          # 2026-10-08: 3 cores + video work reached 96C
+    oom_score_adj: 500
+
+  redis:
+    container_name: personal-immich_redis
+    image: docker.io/valkey/valkey:9@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+    healthcheck:
+      test: redis-cli ping || exit 1
+    restart: unless-stopped
+    networks: [ immich-db ]
+    mem_limit: 128m
+
+  database:
+    container_name: personal-immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    environment:
+      POSTGRES_PASSWORD: ${IMMICH_POSTGRES_PASSWORD}
+      POSTGRES_USER: ${IMMICH_POSTGRES_USER}
+      POSTGRES_DB: ${IMMICH_POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - ${IMMICH_DB_DATA_LOCATION}:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks: [ immich-db ]
+    mem_limit: 2g
+    shm_size: 128mb
+
+networks:
+  immich: { name: personal-immich }
+  immich-db: { name: personal-immich-db, internal: true }

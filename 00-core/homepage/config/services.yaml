@@ -1,0 +1,26 @@
+- Services:
+    - Photos:
+        href: https://photos.homelab.internal
+        description: Immich, Phone backup
+        icon: immich.png
+    - DNS:
+        href: https://dns.homelab.internal/admin/
+        description: Pi-hole filtering
+        icon: pi-hole.png
+    - Automation:
+        href: https://n8n.homelab.internal
+        description: n8n workflows (Mac only)
+        icon: n8n.png
+- Files and ops:
+    - Vault:
+        href: smb://Vault/Vault
+        description: Samba share, tailnet only
+        icon: mdi-safe
+    - Backups:
+        href: https://healthchecks.io/
+        description: healthchecks.io
+        icon: healthchecks.png
+    - Tailscale:
+        href: https://login.tailscale.com/admin/machines
+        description: laptop, phone, server
+        icon: tailscale.png

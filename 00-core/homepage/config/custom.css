@@ -1,0 +1,16 @@
+:root { --cz-accent: #7dd3fc; }
+#information-widgets { margin-bottom: 1.5rem; }
+.service-card, .service-title-text { letter-spacing: .01em; }
+.service-card {
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(24,24,27,.72), rgba(39,39,42,.5));
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.service-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--cz-accent);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+.service-group-name { font-weight: 700; text-transform: uppercase; font-size: .8rem; letter-spacing: .12em; color: var(--cz-accent); }
+.service-description { opacity: .65; }

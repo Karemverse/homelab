@@ -1,0 +1,36 @@
+# Samba vault: tailnet IP only, port 445, SMB3 + encryption required, one user. Updated 2026-10-08.
+# Mac: smb://100.64.0.10/Vault  (or smb://vault.homelab.internal/Vault)
+name: personal-samba
+services:
+  samba-server:
+    container_name: personal-samba_server
+    image: ghcr.io/servercontainers/samba@sha256:ac7c406702a3bf4137fcd04ce031d87adbda1b819f698fe89a89b5ee46618dfb
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ACCOUNT_admin: ${SMB_PASSWORD}
+      UID_admin: 1000
+      AVAHI_DISABLE: "1"
+      WSDD2_DISABLE: "1"
+      NETBIOS_DISABLE: "1"
+      SAMBA_GLOBAL_CONFIG_server_SPACE_min_SPACE_protocol: SMB3
+      SAMBA_GLOBAL_CONFIG_server_SPACE_smb_SPACE_encrypt: required
+      SAMBA_GLOBAL_CONFIG_smb_SPACE_ports: "445"
+      SAMBA_VOLUME_CONFIG_Vault: |
+        [Vault]
+        path = /shares/Vault
+        valid users = admin
+        guest ok = no
+        browseable = yes
+        read only = no
+    volumes:
+      - ${SMB_STORAGE_LOCATION}:/shares/Vault
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "100.64.0.10:445:445"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M

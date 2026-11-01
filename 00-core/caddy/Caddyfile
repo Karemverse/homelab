@@ -1,0 +1,65 @@
+{
+	admin unix//config/caddy-admin.sock
+	default_bind 100.64.0.10
+	auto_https disable_redirects
+	skip_install_trust
+	pki {
+		ca local {
+			name "Homelab"
+			root {
+				cert /pki/homelab-root.crt
+			}
+			intermediate {
+				cert /pki/homelab-intermediate.crt
+				key /pki/homelab-intermediate.key
+			}
+		}
+	}
+}
+
+:2080 {
+	bind 127.0.0.1
+	respond /health "ok" 200
+}
+
+# One wildcard site; each service is a named matcher limited to tailnet (and LAN where noted) source IPs.
+*.homelab.internal {
+	tls internal
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 3
+		}
+	}
+	@home {
+		host home.homelab.internal
+		remote_ip 100.64.0.0/10 127.0.0.0/8
+	}
+	handle @home {
+		reverse_proxy 127.0.0.1:3000
+	}
+	@dns {
+		host dns.homelab.internal
+		remote_ip 100.64.0.0/10 127.0.0.0/8 172.25.70.0/24
+	}
+	handle @dns {
+		reverse_proxy 127.0.0.1:8053
+	}
+	@photos {
+		host photos.homelab.internal
+		remote_ip 100.64.0.0/10 127.0.0.0/8 172.25.70.0/24
+	}
+	handle @photos {
+		reverse_proxy 127.0.0.1:2283
+	}
+	@n8n {
+		host n8n.homelab.internal
+		remote_ip 100.64.0.20 100.64.0.30 100.64.0.10 127.0.0.0/8
+	}
+	handle @n8n {
+		reverse_proxy 127.0.0.1:5678
+	}
+	handle {
+		abort
+	}
+}

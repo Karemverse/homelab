@@ -1,0 +1,20 @@
+name: core-caddy
+services:
+  caddy:
+    image: caddy@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af   # 2.11.7, pinned 2026-10-14 (prev 2.11.4 sha256:0c994536bddb66445885237f1a5dcc1916bccea922661c76b4e9fc24061f9b52)
+    container_name: core-caddy
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /srv/data/core-caddy/data:/data
+      - /srv/data/core-caddy/config:/config
+      - /srv/data/core-caddy/pki:/pki:ro      # root cert, intermediate cert + key (1.17); never a root key
+    cap_drop: [ ALL ]
+    cap_add: [ NET_BIND_SERVICE ]
+    security_opt: [ "no-new-privileges:true" ]
+    mem_limit: 128m
+    oom_score_adj: -500
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:2080/health" ]
+      interval: 30s

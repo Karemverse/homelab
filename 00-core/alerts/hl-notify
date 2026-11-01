@@ -1,0 +1,66 @@
+#!/bin/bash
+# hl-notify <topic> <message> : one line to the Homelab Telegram chat (Bot API sendMessage). Replaced Slack 2026-10-31.
+# Topics: hl-critical, hl-warn -> red, with sound; hl-digest and anything else -> info, silent; a message ending in
+# "all clear" -> green, silent. Installed as /usr/local/sbin/hl-notify, callable as root or admin.
+# Config: /etc/homelab/telegram.env (root:admin 0640) with TG_BOT_TOKEN, TG_CHAT_ID, optional TG_THREAD_ID.
+# The token goes to curl on stdin (-K -), never in argv, never printed.
+# Offline: a failed send is spooled and re-sent (oldest first, tagged "delayed") on the next call that gets through.
+# env (tests): TG_ENV, TG_CURL, HL_NOTIFY_SPOOL, HL_NOTIFY_RETRY_SLEEP
+set -u
+umask 007  # spool is shared by root and admin (dir root:admin 2770)
+topic=${1:-}; msg=${2:-}
+[ -n "$msg" ] || { echo "usage: hl-notify <topic> <message>" >&2; exit 2; }
+case "$topic" in hl-critical|hl-warn) state=red;; *) state=info;; esac
+case "$msg" in *"all clear") state=green;; esac
+
+envfile=${TG_ENV:-/etc/homelab/telegram.env}
+spool=${HL_NOTIFY_SPOOL:-/var/spool/hl-notify}
+curl_bin=${TG_CURL:-curl}
+nap=${HL_NOTIFY_RETRY_SLEEP:-3}
+
+fail() { logger -t hl-notify "$1 ($topic)" 2>/dev/null; echo "hl-notify: $1" >&2; }
+
+# Spool one line: epoch<TAB>state<TAB>text. Kept to the last 200 lines.
+spool_add() {
+  mkdir -p "$spool" 2>/dev/null
+  printf '%s\t%s\t%s\n' "$(date +%s)" "$1" "$2" >> "$spool/queue" 2>/dev/null || return 0
+  tail -n 200 "$spool/queue" > "$spool/queue.tmp" 2>/dev/null && mv -f "$spool/queue.tmp" "$spool/queue"
+}
+
+if [ ! -r "$envfile" ]; then fail "config not readable: $envfile"; spool_add "$state" "$msg"; exit 3; fi
+TG_BOT_TOKEN=; TG_CHAT_ID=; TG_THREAD_ID=
+# shellcheck disable=SC1090
+. "$envfile"
+if [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_CHAT_ID" ]; then fail "TG_BOT_TOKEN or TG_CHAT_ID missing in $envfile"; spool_add "$state" "$msg"; exit 3; fi
+
+# send <state> <text> : 0 when Telegram answered ok:true
+send() {
+  local icon silent=true text
+  case "$1" in red) icon="🔴"; silent=false;; green) icon="🟢";; *) icon="ℹ️";; esac
+  text="$icon homelab: $(printf '%s' "$2" | tr '\r\n\t' '   ' | cut -c1-1000)"
+  local args=(-sS -m 15 -K - --data-urlencode "chat_id=$TG_CHAT_ID" --data-urlencode "text=$text"
+              --data-urlencode "disable_notification=$silent" --data-urlencode "disable_web_page_preview=true")
+  [ -n "$TG_THREAD_ID" ] && args+=(--data-urlencode "message_thread_id=$TG_THREAD_ID")
+  local out
+  out=$(printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$TG_BOT_TOKEN" | "$curl_bin" "${args[@]}" 2>/dev/null)
+  case "$out" in *'"ok":true'*) return 0;; *) return 1;; esac
+}
+
+# Flush the spool first so the order stays true; stop at the first failure.
+if [ -s "$spool/queue" ]; then
+  : > "$spool/queue.left"
+  stuck=0
+  while IFS=$'\t' read -r ts st tx; do
+    if [ $stuck -eq 0 ] && send "$st" "(delayed, $(date -d "@$ts" +'%m-%d %H:%M')) $tx"; then continue; fi
+    stuck=1; printf '%s\t%s\t%s\n' "$ts" "$st" "$tx" >> "$spool/queue.left"
+  done < "$spool/queue"
+  mv -f "$spool/queue.left" "$spool/queue"
+fi
+
+for i in 1 2 3; do
+  send "$state" "$msg" && exit 0
+  [ $i -lt 3 ] && sleep "$nap"
+done
+fail "telegram send failed, spooled"
+spool_add "$state" "$msg"
+exit 1

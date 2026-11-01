@@ -1,0 +1,24 @@
+// Tailnet policy: source of truth. Replace the whole
+// admin-console policy with this file. The console runs the tests block and refuses a failing paste.
+{
+  "tagOwners": { "tag:server": ["autogroup:admin"] },
+  "hosts": {
+    "laptop":        "100.64.0.20",
+    "phone":     "100.64.0.30",
+    "router-ui": "192.168.1.1"
+  },
+  "grants": [
+    { "src": ["laptop", "phone"], "dst": ["laptop", "phone"],        "ip": ["*"] },
+    { "src": ["laptop", "phone"], "dst": ["tag:server"],
+      "ip": ["tcp:22", "tcp:443", "tcp:445", "tcp:53", "udp:53", "tcp:2283", "tcp:2586", "tcp:9000"] },
+    { "src": ["laptop"],          "dst": ["tag:server"],         "ip": ["tcp:8000"] },          // Mac restic -> rest-server
+    { "src": ["laptop", "phone"], "dst": ["autogroup:internet"], "ip": ["*"] },
+    { "src": ["laptop"],          "dst": ["router-ui"],          "ip": ["tcp:80", "tcp:443"] }
+    // No grant has tag:server as a source: it cannot start anything. The Fire TV never joins the tailnet (D4).
+  ],
+  "tests": [
+    { "src": "tag:server", "deny":   ["laptop:22", "phone:443", "router-ui:443"] },
+    { "src": "phone",      "accept": ["tag:server:2586", "tag:server:2283", "tag:server:9000"], "deny": ["tag:server:8000", "router-ui:443"] },
+    { "src": "laptop",         "accept": ["tag:server:22", "tag:server:8000", "router-ui:443"] }
+  ]
+}

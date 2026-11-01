@@ -1,0 +1,24 @@
+title: Homelab
+theme: dark
+color: zinc
+headerStyle: boxedWidgets
+cardBlur: md
+useEqualHeights: true
+hideVersion: true
+statusStyle: dot
+fiveColumns: false
+background:
+  image: https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=2000&q=60
+  blur: sm
+  saturate: 60
+  brightness: 45
+  opacity: 100
+layout:
+  Services:
+    tab: Homelab
+    style: row
+    columns: 3
+  Files and ops:
+    tab: Homelab
+    style: row
+    columns: 3

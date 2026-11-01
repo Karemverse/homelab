@@ -1,0 +1,18 @@
+name: core-homepage
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage@sha256:643bd0be730d40f69d58028a55d1a896739333e8815786df42bc97f109ecbe61   # v2.4.0, pinned 2026-10-02
+    container_name: core-homepage
+    restart: unless-stopped
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: "launch.homelab.internal"
+      LOG_TARGETS: stdout
+    volumes:
+      - ./config:/app/config:ro
+    ports: [ "127.0.0.1:3000:3000" ]
+    networks:
+      homepage: { ipv4_address: 172.25.70.10 }
+    mem_limit: 192m
+    security_opt: [ "no-new-privileges:true" ]
+networks:
+  homepage: { name: homepage, ipam: { config: [ { subnet: 172.25.70.0/24 } ] } }
